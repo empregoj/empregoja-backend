@@ -7,141 +7,44 @@ require('dotenv').config();
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
+const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Rota de teste para ver se está vivo
+app.get('/teste', (req, res) => {
+    res.json({ mensagem: 'Servidor funcionando!' });
+});
 
-const analisarCurriculo = async (imagemBase64) => {
-    try {
-        const response = await openai.chat.completions.create({
-            model: "gpt-4o",
-            messages: [
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "text",
-                            text: `Analise esta imagem de currículo de um jovem angolano.
-                            1. Identifique a área profissional.
-                            2. Sugira melhorias no currículo.
-                            3. Escreva um resumo profissional persuasivo.
-                            4. Sugira palavras-chave para LinkedIn.
-                            5. Recomende formações ou cursos curtos.
-                            Retorne em JSON.`
-                        },
-                        {
-                            type: "image_url",
-                            image_url: {
-                                url: `data:image/jpeg;base64,${imagemBase64}`
-                            }
-                        }
-                    ]
-                }
-            ]
-        });
+// Configurar OpenAI (se tiver chave)
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
-        return JSON.parse(response.choices[0].message.content);
-    } catch (error) {
-        return {
-            area: "Não identificada",
-            melhorias: ["Tente tirar outra foto mais nítida"],
-            resumo: "Currículo em análise",
-            palavras_chave: ["emprego", "jovem"],
-            cursos: ["Procure cursos na sua área"]
-        };
-    }
-};
+// Configurar SendGrid (se tiver chave)
+if (process.env.SENDGRID_API_KEY) {
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
-const enviarEmail = async (para, assunto, texto, html) => {
-    const msg = {
-        to: para,
-        from: 'suporte.empregoja@gmail.com',
-        subject: assunto,
-        text: texto,
-        html: html,
-    };
-
-    try {
-        await sgMail.send(msg);
-        console.log('Email enviado para:', para);
-        return true;
-    } catch (error) {
-        console.error('Erro email:', error);
-        return false;
-    }
-};
-
+// Rota principal
 app.post('/analisar', upload.single('foto'), async (req, res) => {
     try {
-        const imagemBase64 = req.file.buffer.toString('base64');
-        const email = req.body.email;
-
-        const resultado = await analisarCurriculo(imagemBase64);
-
-        if (email) {
-            await enviarEmail(
-                email,
-                '✅ IA analisou teu currículo!',
-                `Olá! A IA terminou a análise. Área: ${resultado.area}`,
-                `<h2>Análise do teu Currículo</h2>
-                 <p><strong>Área:</strong> ${resultado.area}</p>
-                 <p><strong>Resumo sugerido:</strong> ${resultado.resumo}</p>
-                 <p><strong>Melhorias:</strong> ${resultado.melhorias.join(', ')}</p>
-                 <p><strong>Palavras-chave:</strong> ${resultado.palavras_chave.join(', ')}</p>`
-            );
-        }
-
+        // Resposta temporária enquanto testamos
         res.json({
             sucesso: true,
-            area: resultado.area,
-            resumo: resultado.resumo,
-            melhorias: resultado.melhorias,
-            palavras_chave: resultado.palavras_chave,
-            cursos: resultado.cursos
+            area: "Tecnologia",
+            resumo: "Profissional dedicado com experiência em atendimento",
+            melhorias: ["Adicionar cursos", "Incluir objetivos"],
+            palavras_chave: ["#emprego", "#tecnologia"],
+            cursos: ["Excel básico", "Comunicação"]
         });
-
     } catch (error) {
         res.status(500).json({ sucesso: false, erro: error.message });
     }
 });
 
-app.post('/registar', async (req, res) => {
-    const { nome, email, telefone } = req.body;
-
-    await enviarEmail(
-        email,
-        '🎉 Bem-vindo ao Emprego Já!',
-        `Olá ${nome}, tua conta foi criada com sucesso.`,
-        `<h1>Olá ${nome}!</h1><p>Tua conta foi criada com sucesso.</p>`
-    );
-
-    res.json({ sucesso: true });
-});
-
-app.post('/ajuda', async (req, res) => {
-    const { email, duvida } = req.body;
-
-    await enviarEmail(
-        'suporte.empregoja@gmail.com',
-        'Nova dúvida',
-        `Email: ${email}\nDúvida: ${duvida}`,
-        `<p><strong>Email:</strong> ${email}</p><p><strong>Dúvida:</strong> ${duvida}</p>`
-    );
-
-    await enviarEmail(
-        email,
-        'Recebemos tua dúvida',
-        'Olá! Recebemos tua mensagem. Responderemos em breve.',
-        '<p>Recebemos tua mensagem. Responderemos em breve.</p>'
-    );
-
-    res.json({ sucesso: true });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
+app.listen(port, () => {
+    console.log(`🚀 Servidor rodando na porta ${port}`);
 });
